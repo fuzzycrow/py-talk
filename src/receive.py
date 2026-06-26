@@ -1,33 +1,34 @@
 import socket
+import os
+import time
 
-# 設定（ポート番号は任意）
-PORT = 50001
+# ★ステップ1で手動確認したWindowsの「IPv4 アドレス」を入力してください
+SERVER_IP = "192.168.X.X" 
+PORT = 50002
+FILE_PATH = "test.txt" 
 
-# 自分のIPアドレスを確認して表示
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-    s.connect(("8.8.8.8", 80))
-    ip_address = s.getsockname()[0]
+if not os.path.exists(FILE_PATH):
+    print(f"エラー: {FILE_PATH} が見つかりません。")
+    exit()
 
-print(f"受け取り待機中... このPCのIPアドレスは: {ip_address}")
+filename = os.path.basename(FILE_PATH)
 
-# サーバーの起動
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
-    server.bind(("0.0.0.0", PORT))
-    server.listen(1)
+# UDPソケットの作成
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+    target = (SERVER_IP, PORT)
+    print(f"{SERVER_IP} へ送信開始...")
     
-    conn, addr = server.accept()
-    with conn:
-        print(f"接続されました: {addr}")
-        # まずファイル名を受信
-        filename = conn.recv(1024).decode('utf-8')
+    # 1. ファイル名を送る
+    client.sendto(filename.encode('utf-8'), target)
+    time.sleep(0.1)
+    
+    # 2. ファイルの中身を送る
+    with open(FILE_PATH, "rb") as f:
+        client.sendto(f.read(), target)
         
-        # ファイルの中身を受信して保存
-        with open(filename, "wb") as f:
-            while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                f.write(data)
-                
-        print(f"ファイル「{filename}」を受信しました！")
+    # 3. 終了の合図を送る
+    time.sleep(0.1)
+    client.sendto(b"__EOF__", target)
+        
+    print("送信完了しました！")
 

@@ -1,33 +1,24 @@
 import socket
-import os
 
-# 設定
-# ★ここに、受け取り側の画面に表示されたIPアドレスを入力してください
-SERVER_IP = "192.168.x.x" 
-PORT = 50001
-# ★送りたいテキストファイルのパス
-FILE_PATH = "test.txt" 
+PORT = 50002
 
-if not os.path.exists(FILE_PATH):
-    print(f"エラー: {FILE_PATH} が見つかりません。")
-    exit()
-
-filename = os.path.basename(FILE_PATH)
-
-# 送信処理
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-    print(f"{SERVER_IP} に接続中...")
-    client.connect((SERVER_IP, PORT))
+# UDPソケットの作成
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server:
+    server.bind(("0.0.0.0", PORT))
+    print(f"【受信側】ポート {PORT} で待機中...")
     
-    # 1. まずファイル名を送る
-    client.sendall(filename.encode('utf-8'))
-    # 少し待つ（データ混ざり防止）
-    import time
-    time.sleep(0.5)
+    # 1. まずファイル名を受信
+    data, addr = server.recvfrom(1024)
+    filename = data.decode('utf-8')
+    print(f"{addr} から接続。ファイル名: {filename}")
     
-    # 2. ファイルの中身を送る
-    with open(FILE_PATH, "rb") as f:
-        client.sendall(f.read())
-        
-    print("送信が完了しました！")
+    # 2. ファイルの中身を受信して保存
+    with open(filename, "wb") as f:
+        while True:
+            data, addr = server.recvfrom(4096)
+            if data == b"__EOF__": # 終了の合図
+                break
+            f.write(data)
+            
+    print(f"ファイル「{filename}」を正常に受信しました！")
 
